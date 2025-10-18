@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Point de Capiton - Infinite Animation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            overflow: hidden;
+            height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .video-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #infinite-video {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            transform: translate(-50%, -50%);
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .video-loaded {
+            opacity: 1 !important;
+        }
+
+        /* Hide all video controls and UI elements */
+        #infinite-video::-webkit-media-controls {
+            display: none !important;
+        }
+
+        #infinite-video::-webkit-media-controls-panel {
+            display: none !important;
+        }
+
+        #infinite-video::-webkit-media-controls-play-button {
+            display: none !important;
+        }
+
+        #infinite-video::-webkit-media-controls-timeline {
+            display: none !important;
+        }
+
+        #infinite-video::-webkit-media-controls-current-time-display {
+            display: none !important;
+        }
+
+        #infinite-video::-webkit-media-controls-time-remaining-display {
+            display: none !important;
+        }
+
+        #infinite-video::-webkit-media-controls-mute-button {
+            display: none !important;
+        }
+
+        #infinite-video::-webkit-media-controls-volume-slider {
+            display: none !important;
+        }
+
+        #infinite-video::-webkit-media-controls-fullscreen-button {
+            display: none !important;
+        }
+
+        /* Loading indicator */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 18px;
+            opacity: 1;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .loading.hidden {
+            opacity: 0;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            #infinite-video {
+                min-width: 100vw;
+                min-height: 100vh;
+                width: auto;
+                height: auto;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .loading {
+                font-size: 16px;
+            }
+        }
+
+        /* Landscape orientation adjustments */
+        @media (orientation: landscape) and (max-height: 500px) {
+            #infinite-video {
+                min-width: 100vw;
+                min-height: 100vh;
+            }
+        }
+
+        /* High DPI displays */
+        @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+            #infinite-video {
+                image-rendering: -webkit-optimize-contrast;
+                image-rendering: crisp-edges;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="video-container">
+        <div class="video-wrapper">
+            <video 
+                id="infinite-video" 
+                autoplay 
+                muted 
+                loop 
+                playsinline
+                preload="auto"
+                webkit-playsinline
+                x-webkit-airplay="allow"
+            >
+                <source src="video.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+            <div class="loading" id="loading">Loading animation...</div>
+        </div>
+    </div>
+
+    <script>
+        class InfiniteVideoPlayer {
+            constructor() {
+                this.video = document.getElementById('infinite-video');
+                this.loading = document.getElementById('loading');
+                this.isPlaying = false;
+                this.retryCount = 0;
+                this.maxRetries = 3;
+                
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.preloadVideo();
+            }
+
+            setupEventListeners() {
+                // Video events
+                this.video.addEventListener('loadeddata', () => this.onVideoLoaded());
+                this.video.addEventListener('canplaythrough', () => this.onVideoReady());
+                this.video.addEventListener('error', () => this.onVideoError());
+                this.video.addEventListener('ended', () => this.onVideoEnded());
+                this.video.addEventListener('play', () => this.onVideoPlay());
+                this.video.addEventListener('pause', () => this.onVideoPause());
+                this.video.addEventListener('waiting', () => this.onVideoWaiting());
+                this.video.addEventListener('playing', () => this.onVideoPlaying());
+
+                // Window events for responsiveness
+                window.addEventListener('resize', () => this.handleResize());
+                window.addEventListener('orientationchange', () => this.handleOrientationChange());
+
+                // Prevent context menu and other interactions
+                this.video.addEventListener('contextmenu', (e) => e.preventDefault());
+                this.video.addEventListener('dragstart', (e) => e.preventDefault());
+                this.video.addEventListener('selectstart', (e) => e.preventDefault());
+
+                // Touch events for mobile
+                this.video.addEventListener('touchstart', (e) => e.preventDefault());
+                this.video.addEventListener('touchmove', (e) => e.preventDefault());
+                this.video.addEventListener('touchend', (e) => e.preventDefault());
+            }
+
+            preloadVideo() {
+                this.video.load();
+            }
+
+            onVideoLoaded() {
+                console.log('Video data loaded');
+            }
+
+            onVideoReady() {
+                console.log('Video ready to play');
+                this.hideLoading();
+                this.startPlayback();
+            }
+
+            onVideoError() {
+                console.error('Video error occurred');
+                this.handleVideoError();
+            }
+
+            onVideoEnded() {
+                console.log('Video ended, restarting...');
+                this.restartVideo();
+            }
+
+            onVideoPlay() {
+                this.isPlaying = true;
+                console.log('Video started playing');
+            }
+
+            onVideoPause() {
+                this.isPlaying = false;
+                console.log('Video paused');
+            }
+
+            onVideoWaiting() {
+                console.log('Video buffering...');
+            }
+
+            onVideoPlaying() {
+                console.log('Video is playing smoothly');
+            }
+
+            startPlayback() {
+                this.video.currentTime = 0;
+                this.video.play().catch(error => {
+                    console.error('Playback failed:', error);
+                    this.handlePlaybackError();
+                });
+            }
+
+            restartVideo() {
+                this.video.currentTime = 0;
+                this.video.play().catch(error => {
+                    console.error('Restart failed:', error);
+                    this.handlePlaybackError();
+                });
+            }
+
+            hideLoading() {
+                this.loading.classList.add('hidden');
+                this.video.classList.add('video-loaded');
+            }
+
+            handleVideoError() {
+                if (this.retryCount < this.maxRetries) {
+                    this.retryCount++;
+                    console.log(`Retrying video load (attempt ${this.retryCount})`);
+                    setTimeout(() => {
+                        this.video.load();
+                    }, 1000 * this.retryCount);
+                } else {
+                    console.error('Max retries reached, video failed to load');
+                    this.loading.textContent = 'Animation unavailable';
+                }
+            }
+
+            handlePlaybackError() {
+                // Try to restart playback
+                setTimeout(() => {
+                    this.restartVideo();
+                }, 1000);
+            }
+
+            handleResize() {
+                // Ensure video maintains proper aspect ratio
+                this.adjustVideoSize();
+            }
+
+            handleOrientationChange() {
+                // Handle orientation changes on mobile
+                setTimeout(() => {
+                    this.adjustVideoSize();
+                }, 100);
+            }
+
+            adjustVideoSize() {
+                const container = this.video.parentElement;
+                const containerWidth = container.offsetWidth;
+                const containerHeight = container.offsetHeight;
+                const videoAspectRatio = this.video.videoWidth / this.video.videoHeight;
+                const containerAspectRatio = containerWidth / containerHeight;
+
+                if (videoAspectRatio > containerAspectRatio) {
+                    // Video is wider than container
+                    this.video.style.width = '100%';
+                    this.video.style.height = 'auto';
+                } else {
+                    // Video is taller than container
+                    this.video.style.width = 'auto';
+                    this.video.style.height = '100%';
+                }
+            }
+
+            // Public methods for external control if needed
+            play() {
+                this.video.play();
+            }
+
+            pause() {
+                this.video.pause();
+            }
+
+            isVideoPlaying() {
+                return this.isPlaying && !this.video.paused && !this.video.ended;
+            }
+        }
+
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            new InfiniteVideoPlayer();
+        });
+
+        // Fallback for older browsers
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                new InfiniteVideoPlayer();
+            });
+        } else {
+            new InfiniteVideoPlayer();
+        }
+
+        // Prevent any default browser behaviors
+        document.addEventListener('keydown', (e) => {
+            // Prevent space bar from scrolling
+            if (e.code === 'Space') {
+                e.preventDefault();
+            }
+        });
+
+        // Ensure video stays in viewport
+        window.addEventListener('scroll', (e) => {
+            e.preventDefault();
+            window.scrollTo(0, 0);
+        });
+
+        // Disable text selection
+        document.addEventListener('selectstart', (e) => {
+            e.preventDefault();
+        });
+    </script>
+</body>
+</html>
